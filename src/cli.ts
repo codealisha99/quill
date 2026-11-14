@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline/promises";
 import { parseConfig, ConfigError, USAGE, type Config } from "./config.ts";
@@ -22,6 +23,12 @@ export async function main(argv: string[], env: Record<string, string | undefine
       return isHelp ? 0 : 2;
     }
     throw err;
+  }
+
+  // Checked before anything is created: a session directory must never appear under a typo'd path.
+  if (!isDirectory(config.workspace)) {
+    console.error(`quill: workspace is not a directory: ${config.workspace}`);
+    return 2;
   }
 
   let model;
@@ -100,6 +107,14 @@ async function repl(
     } catch (err) {
       console.error(`\nquill: ${err instanceof Error ? err.message : String(err)}`);
     }
+  }
+}
+
+function isDirectory(p: string): boolean {
+  try {
+    return fs.statSync(p).isDirectory();
+  } catch {
+    return false;
   }
 }
 
