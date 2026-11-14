@@ -8,134 +8,295 @@
   <meta property="og:title" content="quill: a terminal coding agent that keeps long sessions valid">
   <meta property="og:description" content="Compaction that never splits a tool call from its result, and read-only sub-agents. Replay of the real demo output included.">
   <meta property="og:type" content="website">
-  <meta name="twitter:card" content="summary">
+  <meta property="og:url" content="https://quill-site-seven.vercel.app/">
+  <meta property="og:image" content="https://quill-site-seven.vercel.app/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="quill: a terminal coding agent that keeps long sessions valid">
+  <meta name="twitter:image" content="https://quill-site-seven.vercel.app/og.png">
+  <link rel="canonical" href="https://quill-site-seven.vercel.app/">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
+
 <header class="top">
-  <a class="mark" href="#top" aria-label="quill home">quill</a>
-  <nav aria-label="Primary">
-    <a href="#evidence">Replay</a>
-    <a href="#design">Design</a>
-    <a href="#start">Quickstart</a>
-    <a href="#limits">Limits</a>
-    <a href="https://github.com/codealisha99/quill">Source</a>
-  </nav>
+  <div class="wrap top-in">
+    <a class="mark" href="#top" aria-label="quill home">quill</a>
+    <nav aria-label="Primary">
+      <a href="#compaction">Compaction</a>
+      <a href="#design">Design</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#quickstart">Quickstart</a>
+      <a href="#code">Code</a>
+      <a href="#limits">Limits</a>
+    </nav>
+    <a class="btn btn-small" href="https://github.com/codealisha99/quill">GitHub</a>
+  </div>
 </header>
 
-<main id="top">
-  <section class="hero">
-    <p class="lede">A terminal coding agent in TypeScript (Bun).</p>
-    <h1>When the context runs out, quill folds the old turns and keeps every tool call paired.</h1>
-    <p class="standfirst">Most agent loops fail the same way: the transcript outgrows the budget, and a summary or cut lands between a <code>tool_use</code> and its <code>tool_result</code>. The provider rejects the next request and the session is lost. quill cuts only at assistant turns, so the pairing holds by construction and is checked in the tests.</p>
+<main id="main">
 
-    <figure class="ledger" aria-labelledby="ledger-cap">
-      <svg viewBox="0 0 720 150" role="img" aria-labelledby="ledger-title ledger-desc">
-        <title id="ledger-title">Transcript before and after compaction</title>
-        <desc id="ledger-desc">Before compaction the transcript is six turns long. After compaction the four oldest turns become one summary message, and the last two assistant turns with their tool results, plus the current request, are kept verbatim.</desc>
-        <text class="ll" x="0" y="16">before</text>
-        <g class="before">
-          <rect x="0" y="26" width="110" height="34" rx="3"/><rect x="116" y="26" width="110" height="34" rx="3"/><rect x="232" y="26" width="110" height="34" rx="3"/><rect x="348" y="26" width="110" height="34" rx="3"/><rect x="464" y="26" width="110" height="34" rx="3"/><rect x="580" y="26" width="140" height="34" rx="3"/>
-        </g>
-        <text class="ll" x="0" y="98">after</text>
-        <g class="after">
-          <rect class="sum" x="0" y="108" width="226" height="34" rx="3"/>
-          <rect x="232" y="108" width="226" height="34" rx="3"/><rect x="464" y="108" width="256" height="34" rx="3"/>
-        </g>
-        <text class="sumlab" x="10" y="130">summary of earlier turns</text>
-        <text class="kept" x="242" y="130">turn n-1, tool_use + tool_result</text>
-        <text class="kept" x="474" y="130">turn n, plus the current request</text>
-      </svg>
-      <figcaption id="ledger-cap">Compaction on a six-turn transcript. The four oldest turns fold into one summary message. The last two assistant turns and their results stay verbatim. Shapes are drawn to the layout, not to scale.</figcaption>
-    </figure>
-  </section>
-
-  <section id="evidence" class="block">
-    <h2>The real demo, replayed</h2>
-    <p>Both demos below run the real agent loop and real tools, driven by a <strong>scripted model</strong>. There is no LLM API key in this project and no network call. The output is recorded from <code>make demo</code> and <code>make demo-compaction</code> by <code>scripts/record-demos.ts</code>. Playback runs at a fixed 60&nbsp;ms per line so it can be read. The real runs took <span id="dur-bugfix">—</span> and <span id="dur-compaction">—</span>.</p>
-
-    <div class="term" role="region" aria-label="Terminal replay of recorded demo output">
-      <div class="term-bar">
-        <div class="tabs" role="tablist" aria-label="Demo">
-          <button role="tab" id="tab-bugfix" aria-selected="true" aria-controls="screen" data-demo="bugfix">make demo</button>
-          <button role="tab" id="tab-compaction" aria-selected="false" aria-controls="screen" data-demo="compaction">make demo-compaction</button>
+  <!-- 1. Hero: statement left, live replay right. Everything above the fold. -->
+  <section class="hero" id="top">
+    <div class="wrap hero-grid">
+      <div class="hero-copy">
+        <p class="eyebrow">Terminal coding agent · TypeScript on Bun · MIT</p>
+        <h1>Long sessions that never break a tool call.</h1>
+        <p class="standfirst">When the transcript outgrows the budget, most agent loops cut or summarise in the wrong place. The next request is rejected and the session is lost. quill cuts only before assistant turns, so every <code>tool_use</code> keeps its <code>tool_result</code>, and the tests check it.</p>
+        <div class="actions">
+          <a class="btn btn-primary" href="https://github.com/codealisha99/quill">View on GitHub</a>
+          <a class="btn" href="#replay" data-replay-restart>Watch the replay</a>
         </div>
-        <button class="play" id="play" type="button">Replay</button>
+        <p class="fineprint">No API key and no network call for the replay. Live model runs are not verified in this repo (see <a href="#limits">limits</a>).</p>
       </div>
-      <pre id="screen" class="screen" role="tabpanel" aria-live="off" tabindex="0"></pre>
-      <p class="term-note" id="term-note">Scripted model. Recorded output, not a live run.</p>
+
+      <div class="hero-term" id="replay">
+        <div class="term" data-player="bugfix">
+          <div class="term-bar">
+            <div class="tabs" role="tablist" aria-label="Recorded demo">
+              <button class="tab" role="tab" id="tab-bugfix" aria-selected="true" aria-controls="screen-bugfix" data-demo="bugfix" type="button">make demo</button>
+              <button class="tab" role="tab" id="tab-compaction" aria-selected="false" aria-controls="screen-compaction" data-demo="compaction" type="button">make demo-compaction</button>
+            </div>
+            <span class="badge">recorded · scripted model</span>
+          </div>
+          <div class="screen-wrap">
+            <pre class="screen" id="screen" role="tabpanel" aria-labelledby="tab-bugfix" tabindex="0"></pre>
+          </div>
+          <div class="transport" role="group" aria-label="Replay controls">
+            <button class="ctl" id="play" type="button" aria-label="Play">Play</button>
+            <button class="ctl" id="restart" type="button" aria-label="Restart replay">Restart</button>
+            <input id="scrub" type="range" min="0" max="1000" value="0" step="1" aria-label="Scrub through the replay" aria-valuetext="start">
+            <span class="clock" id="clock" aria-live="off">0 / 0</span>
+            <div class="speeds" role="group" aria-label="Playback speed">
+              <button class="ctl ctl-sm" type="button" data-speed="0.5" aria-pressed="false">0.5×</button>
+              <button class="ctl ctl-sm" type="button" data-speed="1" aria-pressed="true">1×</button>
+              <button class="ctl ctl-sm" type="button" data-speed="2" aria-pressed="false">2×</button>
+            </div>
+          </div>
+          <p class="term-note" id="term-note">Recorded output from make demo, recorded 2026-11-14. Press play, or it starts when this scrolls into view.</p>
+        </div>
+      </div>
     </div>
   </section>
 
-  <section id="design" class="block">
-    <h2>How the context is kept small</h2>
-    <p>Each request is measured before it is sent, at about four characters per token. Past 80% of the budget, quill summarises the older turns into one user message, then sends the request. The cut is only ever made before an assistant message, which keeps the last two assistant turns and the latest user request verbatim. Cutting before a user message would make a single long turn impossible to compact.</p>
-    <p>Tool output is cut in the middle, not dropped. The head and tail stay, with a marker showing how many characters were removed. Each session is an append-only JSONL file. A compaction record stores the compacted history, so <code>--resume</code> replays that snapshot and never calls the summariser again.</p>
-
-    <h3>Sub-agents are one level deep</h3>
-    <p>The <code>task</code> tool starts a child with an empty history, read-only tools, and no permission to ask. The child cannot call <code>task</code>, so the tree cannot grow. The parent receives only the child's final text, so a long search does not fill the parent's context.</p>
-
-    <figure class="arch">
-      <svg viewBox="0 0 720 290" role="img" aria-labelledby="arch-title arch-desc">
-        <title id="arch-title">quill architecture</title>
-        <desc id="arch-desc">The CLI calls the runtime, which wires the agent loop. The loop calls the model adapters, runs compaction when the budget is exceeded, and runs the tools. The task tool starts a child loop with read-only tools, and the child returns only its final text. Tools are confined to the workspace. The loop writes sessions to JSONL.</desc>
-        <defs><marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" fill="#13213A"/></marker></defs>
-        <g class="node"><rect x="8" y="112" width="112" height="46" rx="4"/><text x="64" y="139">cli.ts</text></g>
-        <g class="node"><rect x="152" y="112" width="112" height="46" rx="4"/><text x="208" y="139">runtime.ts</text></g>
-        <g class="node core"><rect x="296" y="104" width="128" height="62" rx="4"/><text x="360" y="130">agent/loop.ts</text><text class="sub" x="360" y="150">turn loop</text></g>
-        <g class="node warm"><rect x="296" y="10" width="128" height="50" rx="4"/><text x="360" y="32">agent/compact.ts</text><text class="sub" x="360" y="49">summarise old turns</text></g>
-        <g class="node"><rect x="468" y="10" width="244" height="50" rx="4"/><text x="590" y="32">model/*</text><text class="sub" x="590" y="49">Anthropic SDK · OpenAI-compatible · scripted</text></g>
-        <g class="node"><rect x="468" y="104" width="244" height="62" rx="4"/><text x="590" y="130">tools/*</text><text class="sub" x="590" y="150">read write edit bash grep glob task</text></g>
-        <g class="node"><rect x="468" y="224" width="244" height="50" rx="4"/><text x="590" y="246">tools/paths.ts</text><text class="sub" x="590" y="263">workspace confinement</text></g>
-        <g class="node"><rect x="296" y="224" width="128" height="50" rx="4"/><text x="360" y="246">session/store.ts</text><text class="sub" x="360" y="263">JSONL, --resume</text></g>
-        <g class="node warm"><rect x="8" y="10" width="244" height="50" rx="4"/><text x="130" y="32">task: child loop</text><text class="sub" x="130" y="49">fresh history, read-only tools, no task</text></g>
-        <g class="edges" fill="none" stroke="#13213A" stroke-width="1.4" marker-end="url(#arr)">
-          <path d="M120 135H152"/>
-          <path d="M264 135H296"/>
-          <path d="M424 135H468"/>
-          <path d="M360 104V60"/>
-          <path d="M424 112L468 50"/>
-          <path d="M360 166V224"/>
-          <path d="M590 166V224"/>
-          <path d="M468 160H424" stroke-dasharray="4 3"/>
-          <path d="M252 60L296 118" stroke-dasharray="4 3"/>
-        </g>
-      </svg>
-      <figcaption>Arrows show calls. The task tool runs a child loop with a fresh history and read-only tools, and returns only its final text to the parent.</figcaption>
-    </figure>
+  <!-- 2. Proof strip: real numbers from the recorded runs. Dark band. -->
+  <section class="proof" aria-label="What the recorded runs show">
+    <dl class="wrap proof-grid">
+      <div><dt>tests before the agent</dt><dd class="fail">FAIL</dd></div>
+      <div><dt>tests after the agent</dt><dd class="pass">PASS</dd></div>
+      <div><dt>transcript pairing after the run</dt><dd>valid</dd></div>
+      <div><dt>context after compaction</dt><dd>979 → 421 <span>tokens</span></dd></div>
+      <div><dt>summariser calls, four requests</dt><dd>1</dd></div>
+    </dl>
   </section>
 
-  <section id="start" class="block">
-    <h2>Quickstart</h2>
-    <p>Requires Bun 1.3 or later. No API key is needed for the demos or the tests.</p>
-    <pre class="code"><code>bun install
-make test              # 80 tests: loop, tools, path confinement, compaction, sub-agent fan-out, sessions
-make demo              # keyless: agent finds and fixes a bug in a temp repo, tests go red -&gt; green
-make demo-compaction   # keyless: four requests under a 1200-token budget; compaction triggers</code></pre>
-    <p>With a real model, set <code>ANTHROPIC_API_KEY</code> in <code>.env</code> and run <code>bun src/cli.ts</code>. Other providers are reached through <code>QUILL_OPENAI_BASE_URL</code>. The live path has not been run against a real API in this repo.</p>
+  <!-- 3. Compaction: the animated fold, full width. -->
+  <section class="band band-alt" id="compaction">
+    <div class="wrap">
+      <header class="section-head">
+        <p class="kicker">01 · Compaction</p>
+        <h2>Old turns fold into one summary. Tool calls never split.</h2>
+        <p class="lead">Each turn is an assistant message with the tool calls it made and their results. Compaction cuts only at the start of an assistant turn, so a turn and its results always move together.</p>
+      </header>
+
+      <ol class="steps">
+        <li><span class="n">1</span><h3>Measure</h3><p>Before each request, quill estimates the size of the transcript at about four characters per token.</p></li>
+        <li><span class="n">2</span><h3>Fold</h3><p>Past 80% of the budget, every turn older than the last two is replaced by one summary message.</p></li>
+        <li><span class="n">3</span><h3>Keep pairs</h3><p>The last two turns stay verbatim with their results, and the latest request is kept too. The pairing is checked after every compaction.</p></li>
+      </ol>
+
+      <figure class="fold" id="fold" data-state="before">
+        <div class="fold-toolbar">
+          <span class="fold-title">Illustrative six-turn transcript</span>
+          <button class="ctl ctl-sm" id="fold-replay" type="button">Replay fold</button>
+        </div>
+
+        <div class="fold-row fold-before" aria-hidden="false">
+          <span class="row-label">before</span>
+          <div class="cells">
+            <div class="cell fold-cell" data-i="1"><span class="turn">turn 1</span><span class="pair"><span class="chip">tool_use · read</span><span class="chip res">tool_result</span></span></div>
+            <div class="cell fold-cell" data-i="2"><span class="turn">turn 2</span><span class="pair"><span class="chip">tool_use · bash</span><span class="chip res">tool_result</span></span></div>
+            <div class="cell fold-cell" data-i="3"><span class="turn">turn 3</span><span class="pair"><span class="chip">tool_use · edit</span><span class="chip res">tool_result</span></span></div>
+            <div class="cell fold-cell" data-i="4"><span class="turn">turn 4</span><span class="pair"><span class="chip">tool_use · grep</span><span class="chip res">tool_result</span></span></div>
+            <div class="cell keep" data-i="5"><span class="turn">turn 5</span><span class="pair"><span class="chip">tool_use · read</span><span class="chip res">tool_result</span></span></div>
+            <div class="cell keep" data-i="6"><span class="turn">turn 6</span><span class="pair"><span class="chip">tool_use · bash</span><span class="chip res">tool_result</span></span></div>
+          </div>
+        </div>
+
+        <div class="fold-arrow" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 3v14M6 11l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>compact when past 80% of budget</span>
+        </div>
+
+        <div class="fold-row fold-after">
+          <span class="row-label">after</span>
+          <div class="cells">
+            <div class="cell summary" aria-label="Summary message covering turns 1 to 4"><span class="sumtag">one user message</span><span class="sumtext">summary of turns 1–4: files read, edits made, test results, open tasks</span></div>
+            <div class="cell keep"><span class="turn">turn 5</span><span class="pair"><span class="chip">tool_use · read</span><span class="chip res">tool_result</span></span></div>
+            <div class="cell keep"><span class="turn">turn 6</span><span class="pair"><span class="chip">tool_use · bash</span><span class="chip res">tool_result</span></span><span class="newreq">+ new request, verbatim</span></div>
+          </div>
+        </div>
+
+        <figcaption>Turns 1–4 fold into one summary message. Turns 5 and 6 stay verbatim, each tool_use still next to its tool_result. Boxes are drawn to the layout, not to scale.</figcaption>
+      </figure>
+    </div>
   </section>
 
-  <section id="limits" class="block">
-    <h2>Limits, stated plainly</h2>
-    <ul class="limits">
-      <li><strong>No live model run is verified.</strong> The Anthropic path is tested against a mock SSE server and the OpenAI path against a fake fetch.</li>
-      <li><strong>bash is not a sandbox.</strong> Confinement covers the file tools only. The approval prompt is the guard for shell commands.</li>
-      <li><strong>Token counts are estimates.</strong> Four characters per token can be off for code and non-English text.</li>
-      <li><strong>One turn can still overflow.</strong> Compaction runs only between turns. A single request that is too big is reported as a warning.</li>
-      <li><strong>Summaries are written by the model.</strong> Earlier facts survive only as far as the summary keeps them.</li>
-      <li><strong>The OpenAI-compatible path is not streamed.</strong> The full reply arrives at once.</li>
-    </ul>
+  <!-- 4. How it works: prose column with a facts sidebar. -->
+  <section class="band" id="design">
+    <div class="wrap split">
+      <div class="split-main">
+        <p class="kicker">02 · Design</p>
+        <h2>Cut in the one place that keeps the protocol valid.</h2>
+        <p>Cutting before a user message would make a single long turn impossible to compact, because the whole turn would be the only thing left to keep. Cutting before an assistant message keeps the last two assistant turns and the latest user request verbatim, and the pairing holds by construction.</p>
+        <p>Tool output is cut in the middle, not dropped. The head and tail stay, with a marker showing how many characters were removed, so a long log still shows where it starts and ends.</p>
+        <p>Each session is an append-only JSONL file. A compaction record stores the compacted history, so <code>--resume</code> replays that snapshot and never calls the summariser again.</p>
+        <h3>Sub-agents are one level deep</h3>
+        <p>The <code>task</code> tool starts a child with an empty history, read-only tools, and no permission to ask. The child cannot call <code>task</code>, so the tree cannot grow. The parent receives only the child's final text.</p>
+      </div>
+      <aside class="facts" aria-label="Key numbers">
+        <dl>
+          <div><dt>Token estimate</dt><dd>~4 chars / token</dd></div>
+          <div><dt>Compaction trigger</dt><dd>80% of 150k</dd></div>
+          <div><dt>Turns kept verbatim</dt><dd>last 2 + request</dd></div>
+          <div><dt>Tool output cap</dt><dd>20k chars, head + tail</dd></div>
+          <div><dt>Sub-agent depth</dt><dd>1, read-only</dd></div>
+          <div><dt>Session format</dt><dd>append-only JSONL</dd></div>
+        </dl>
+      </aside>
+    </div>
   </section>
 
-  <section class="block links">
-    <p><a href="https://github.com/codealisha99/quill">Source on GitHub</a></p>
-    <p>Live demo: none. quill is a command-line tool with no hosted backend. The replay above is recorded output from the repository's own demos.</p>
+  <!-- 5. Architecture: full width, larger. -->
+  <section class="band band-alt" id="architecture">
+    <div class="wrap">
+      <header class="section-head">
+        <p class="kicker">03 · Architecture</p>
+        <h2>One loop, a few adapters, and a child loop that cannot grow.</h2>
+      </header>
+      <figure class="arch">
+        <svg viewBox="0 0 720 290" role="img" aria-labelledby="arch-title arch-desc">
+          <title id="arch-title">quill architecture</title>
+          <desc id="arch-desc">The CLI calls the runtime, which wires the agent loop. The loop calls the model adapters, runs compaction when the budget is exceeded, and runs the tools. The task tool starts a child loop with read-only tools, and the child returns only its final text. Tools are confined to the workspace. The loop writes sessions to JSONL.</desc>
+          <defs><marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" fill="#13213A"/></marker></defs>
+          <g class="node"><rect x="8" y="112" width="112" height="46" rx="4"/><text x="64" y="139">cli.ts</text></g>
+          <g class="node"><rect x="152" y="112" width="112" height="46" rx="4"/><text x="208" y="139">runtime.ts</text></g>
+          <g class="node core"><rect x="296" y="104" width="128" height="62" rx="4"/><text x="360" y="130">agent/loop.ts</text><text class="sub" x="360" y="150">turn loop</text></g>
+          <g class="node warm"><rect x="296" y="10" width="128" height="50" rx="4"/><text x="360" y="32">agent/compact.ts</text><text class="sub" x="360" y="49">summarise old turns</text></g>
+          <g class="node"><rect x="468" y="10" width="244" height="50" rx="4"/><text x="590" y="32">model/*</text><text class="sub" x="590" y="49">Anthropic SDK · OpenAI-compatible · scripted</text></g>
+          <g class="node"><rect x="468" y="104" width="244" height="62" rx="4"/><text x="590" y="130">tools/*</text><text class="sub" x="590" y="150">read write edit bash grep glob task</text></g>
+          <g class="node"><rect x="468" y="224" width="244" height="50" rx="4"/><text x="590" y="246">tools/paths.ts</text><text class="sub" x="590" y="263">workspace confinement</text></g>
+          <g class="node"><rect x="296" y="224" width="128" height="50" rx="4"/><text x="360" y="246">session/store.ts</text><text class="sub" x="360" y="263">JSONL, --resume</text></g>
+          <g class="node warm"><rect x="8" y="10" width="244" height="50" rx="4"/><text x="130" y="32">task: child loop</text><text class="sub" x="130" y="49">fresh history, read-only tools, no task</text></g>
+          <g class="edges" fill="none" stroke="#13213A" stroke-width="1.4" marker-end="url(#arr)">
+            <path d="M120 135H152"/>
+            <path d="M264 135H296"/>
+            <path d="M424 135H468"/>
+            <path d="M360 104V60"/>
+            <path d="M424 112L468 50"/>
+            <path d="M360 166V224"/>
+            <path d="M590 166V224"/>
+            <path d="M468 160H424" stroke-dasharray="4 3"/>
+            <path d="M252 60L296 118" stroke-dasharray="4 3"/>
+          </g>
+        </svg>
+        <figcaption>Arrows show calls. The task tool runs a child loop with a fresh history and read-only tools, and returns only its final text to the parent. File tools are confined to the workspace; bash is not (see limits).</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 6. Quickstart with copy buttons. -->
+  <section class="band" id="quickstart">
+    <div class="wrap split">
+      <div class="split-main">
+        <p class="kicker">04 · Quickstart</p>
+        <h2>Run the tests and both demos without a key.</h2>
+        <p>Requires Bun 1.3 or later. The demos drive the real loop and real tools with a scripted model, so they run offline.</p>
+        <p>With a real model, set <code>ANTHROPIC_API_KEY</code> in <code>.env</code> and run <code>bun src/cli.ts</code>. Other providers are reached through <code>QUILL_OPENAI_BASE_URL</code>. The live path has not been run against a real API in this repo.</p>
+      </div>
+      <div class="cmds" role="list">
+        <div class="cmd" role="listitem"><div><code>bun install</code></div><button class="copy" type="button" data-copy="bun install">Copy</button></div>
+        <div class="cmd" role="listitem"><div><code>make test</code><span>80 tests: loop, tools, path confinement, compaction, sub-agents, sessions</span></div><button class="copy" type="button" data-copy="make test">Copy</button></div>
+        <div class="cmd" role="listitem"><div><code>make demo</code><span>a bug fixed in a temp repo, tests go red then green</span></div><button class="copy" type="button" data-copy="make demo">Copy</button></div>
+        <div class="cmd" role="listitem"><div><code>make demo-compaction</code><span>four requests under a 1200-token budget</span></div><button class="copy" type="button" data-copy="make demo-compaction">Copy</button></div>
+        <div class="cmd" role="listitem"><div><code>bun src/cli.ts -p "add a test for parse()"</code><span>one-shot run with a real model, after setting a key</span></div><button class="copy" type="button" data-copy='bun src/cli.ts -p "add a test for parse()"'>Copy</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. Where to look in the code. -->
+  <section class="band band-alt" id="code">
+    <div class="wrap">
+      <header class="section-head">
+        <p class="kicker">05 · Where to look</p>
+        <h2>The hard part is five files.</h2>
+      </header>
+      <ul class="files">
+        <li>
+          <a href="https://github.com/codealisha99/quill/blob/main/src/agent/compact.ts"><code>src/agent/compact.ts</code></a>
+          <p>Cuts only at assistant messages and keeps the last two turns and the request verbatim. Everything older becomes one summary.</p>
+        </li>
+        <li>
+          <a href="https://github.com/codealisha99/quill/blob/main/src/agent/pairing.ts"><code>src/agent/pairing.ts</code></a>
+          <p>The provider's invariant written as code: every <code>tool_use</code> has exactly one <code>tool_result</code> in the next message. Run after every compaction.</p>
+        </li>
+        <li>
+          <a href="https://github.com/codealisha99/quill/blob/main/src/agent/loop.ts"><code>src/agent/loop.ts</code></a>
+          <p>The turn loop. Compaction runs before each request, and a reply cut off at the output limit has its tool calls dropped rather than run.</p>
+        </li>
+        <li>
+          <a href="https://github.com/codealisha99/quill/blob/main/src/tools/paths.ts"><code>src/tools/paths.ts</code></a>
+          <p><code>resolveInside()</code> rejects <code>..</code>, absolute paths outside the root, NUL bytes, and symlinks that point out.</p>
+        </li>
+        <li>
+          <a href="https://github.com/codealisha99/quill/blob/main/src/agent/subagent.ts"><code>src/agent/subagent.ts</code></a>
+          <p>A child starts with an empty history, denies every permission request, and returns only its final text.</p>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 8. Limits, stated plainly. -->
+  <section class="band" id="limits">
+    <div class="wrap split">
+      <div class="split-main">
+        <p class="kicker">06 · Limits</p>
+        <h2>What is not verified, stated plainly.</h2>
+        <p>The replay is recorded output from the repository's own demos. Nothing here has been checked against a live model.</p>
+      </div>
+      <ul class="limits">
+        <li><strong>No live model run is verified.</strong> The Anthropic path is tested against a mock SSE server and the OpenAI path against a fake fetch.</li>
+        <li><strong>bash is not a sandbox.</strong> Confinement covers the file tools only. The approval prompt is the guard for shell commands.</li>
+        <li><strong>Token counts are estimates.</strong> Four characters per token can be off for code and non-English text.</li>
+        <li><strong>One turn can still overflow.</strong> Compaction runs only between turns. A single request that is too big is reported as a warning.</li>
+        <li><strong>Summaries are written by the model.</strong> Earlier facts survive only as far as the summary keeps them.</li>
+        <li><strong>The OpenAI-compatible path is not streamed.</strong> The full reply arrives at once.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 9. Closing: three real destinations, not a bare link. -->
+  <section class="closing">
+    <div class="wrap">
+      <h2>Read it, run it, or break it.</h2>
+      <p>quill is a command-line tool with no hosted backend, so there is no live demo to visit. Everything above can be checked from the repository.</p>
+      <div class="cards">
+        <a class="card" href="https://github.com/codealisha99/quill"><span class="card-k">Source</span><span class="card-t">github.com/codealisha99/quill</span></a>
+        <a class="card" href="https://github.com/codealisha99/quill/tree/main/test"><span class="card-k">Tests</span><span class="card-t">80 tests in 14 files, run with bun test</span></a>
+        <a class="card" href="https://github.com/codealisha99/quill/tree/main/demo"><span class="card-k">Demos</span><span class="card-t">The scripts behind the replay above</span></a>
+      </div>
+    </div>
   </section>
 </main>
 
 <footer class="foot">
-  <p>MIT licence. Built with Bun and TypeScript.</p>
+  <div class="wrap foot-in">
+    <p>MIT licence. Built with Bun and TypeScript.</p>
+    <p><a href="#top">Back to top</a></p>
+  </div>
 </footer>
 
 <script src="recordings.js"></script>
