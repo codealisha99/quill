@@ -37,7 +37,13 @@ export async function main(argv: string[], env: Record<string, string | undefine
     console.error("quill: no session to resume in .quill/sessions");
     return 1;
   }
-  const history: Message[] = config.resume ? loadSession(sessionFile) : [];
+  let history: Message[] = [];
+  try {
+    history = config.resume ? loadSession(sessionFile) : [];
+  } catch (err) {
+    console.error(`quill: cannot read session ${sessionFile}: ${err instanceof Error ? err.message : String(err)}`);
+    return 1;
+  }
 
   // The REPL and TTY-backed prompts share one readline interface; piped stdin works too.
   const rl = config.prompt === undefined || process.stdin.isTTY
