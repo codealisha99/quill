@@ -30,7 +30,7 @@ Requires [Bun](https://bun.sh) 1.3+. No API key is needed for the demos or the t
 
 ```bash
 bun install
-make test              # 69 tests: loop, tools, path confinement, compaction, sub-agent fan-out, sessions
+make test              # 73 tests: loop, tools, path confinement, compaction, sub-agent fan-out, sessions
 make demo              # keyless: agent finds and fixes a bug in a temp repo, tests go red -> green
 make demo-compaction   # keyless: four requests under a 1200-token budget; compaction triggers
 ```
@@ -77,7 +77,7 @@ system prompt.
 
 ## Verification
 
-- `make test`: 69 tests across 13 files, run with `bun test`. Coverage is about 93% of lines. The tests are
+- `make test`: 73 tests across 13 files, run with `bun test`. Coverage is 96% of lines and 91% of functions. The tests are
   hermetic. The Anthropic streaming path runs through the real SDK against a local mock SSE server. The
   OpenAI-compatible path uses a fake `fetch`.
 - `make demo`: the real loop and real tools, driven by a scripted model. The agent delegates a repo map to a
