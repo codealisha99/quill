@@ -1,5 +1,7 @@
 # quill
 
+[![ci](https://github.com/codealisha99/quill/actions/workflows/ci.yml/badge.svg)](https://github.com/codealisha99/quill/actions/workflows/ci.yml)
+
 **Landing page:** https://quill-site-seven.vercel.app (replays the real demo output; scripted model)
 **Live demo:** none. quill is a command-line tool with no hosted backend.
 
