@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>quill: a terminal coding agent that keeps long sessions valid</title>
+  <meta name="description" content="quill is a small TypeScript terminal coding agent. When the context budget fills, it summarises older turns without breaking tool-call pairing, and delegates reads to read-only sub-agents.">
+  <meta property="og:title" content="quill: a terminal coding agent that keeps long sessions valid">
+  <meta property="og:description" content="Compaction that never splits a tool call from its result, and read-only sub-agents. Replay of the real demo output included.">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <a class="mark" href="#top" aria-label="quill home">quill</a>
+  <nav aria-label="Primary">
+    <a href="#evidence">Replay</a>
+    <a href="#design">Design</a>
+    <a href="#start">Quickstart</a>
+    <a href="#limits">Limits</a>
+    <a href="https://github.com/codealisha99/quill">Source</a>
+  </nav>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <p class="lede">A terminal coding agent in TypeScript (Bun).</p>
+    <h1>When the context runs out, quill folds the old turns and keeps every tool call paired.</h1>
+    <p class="standfirst">Most agent loops fail the same way: the transcript outgrows the budget, and a summary or cut lands between a <code>tool_use</code> and its <code>tool_result</code>. The provider rejects the next request and the session is lost. quill cuts only at assistant turns, so the pairing holds by construction and is checked in the tests.</p>
+
+    <figure class="ledger" aria-labelledby="ledger-cap">
+      <svg viewBox="0 0 720 150" role="img" aria-labelledby="ledger-title ledger-desc">
+        <title id="ledger-title">Transcript before and after compaction</title>
+        <desc id="ledger-desc">Before compaction the transcript is six turns long. After compaction the four oldest turns become one summary message, and the last two assistant turns with their tool results, plus the current request, are kept verbatim.</desc>
+        <text class="ll" x="0" y="16">before</text>
+        <g class="before">
+          <rect x="0" y="26" width="110" height="34" rx="3"/><rect x="116" y="26" width="110" height="34" rx="3"/><rect x="232" y="26" width="110" height="34" rx="3"/><rect x="348" y="26" width="110" height="34" rx="3"/><rect x="464" y="26" width="110" height="34" rx="3"/><rect x="580" y="26" width="140" height="34" rx="3"/>
+        </g>
+        <text class="ll" x="0" y="98">after</text>
+        <g class="after">
+          <rect class="sum" x="0" y="108" width="226" height="34" rx="3"/>
+          <rect x="232" y="108" width="226" height="34" rx="3"/><rect x="464" y="108" width="256" height="34" rx="3"/>
+        </g>
+        <text class="sumlab" x="10" y="130">summary of earlier turns</text>
+        <text class="kept" x="242" y="130">turn n-1, tool_use + tool_result</text>
+        <text class="kept" x="474" y="130">turn n, plus the current request</text>
+      </svg>
+      <figcaption id="ledger-cap">Compaction on a six-turn transcript. The four oldest turns fold into one summary message. The last two assistant turns and their results stay verbatim. Shapes are drawn to the layout, not to scale.</figcaption>
+    </figure>
+  </section>
+
+  <section id="evidence" class="block">
+    <h2>The real demo, replayed</h2>
+    <p>Both demos below run the real agent loop and real tools, driven by a <strong>scripted model</strong>. There is no LLM API key in this project and no network call. The output is recorded from <code>make demo</code> and <code>make demo-compaction</code> by <code>scripts/record-demos.ts</code>. Playback runs at a fixed 60&nbsp;ms per line so it can be read. The real runs took <span id="dur-bugfix">—</span> and <span id="dur-compaction">—</span>.</p>
+
+    <div class="term" role="region" aria-label="Terminal replay of recorded demo output">
+      <div class="term-bar">
+        <div class="tabs" role="tablist" aria-label="Demo">
+          <button role="tab" id="tab-bugfix" aria-selected="true" aria-controls="screen" data-demo="bugfix">make demo</button>
+          <button role="tab" id="tab-compaction" aria-selected="false" aria-controls="screen" data-demo="compaction">make demo-compaction</button>
+        </div>
+        <button class="play" id="play" type="button">Replay</button>
+      </div>
+      <pre id="screen" class="screen" role="tabpanel" aria-live="off" tabindex="0"></pre>
+      <p class="term-note" id="term-note">Scripted model. Recorded output, not a live run.</p>
+    </div>
+  </section>
+
+  <section id="design" class="block">
+    <h2>How the context is kept small</h2>
+    <p>Each request is measured before it is sent, at about four characters per token. Past 80% of the budget, quill summarises the older turns into one user message, then sends the request. The cut is only ever made before an assistant message, which keeps the last two assistant turns and the latest user request verbatim. Cutting before a user message would make a single long turn impossible to compact.</p>
+    <p>Tool output is cut in the middle, not dropped. The head and tail stay, with a marker showing how many characters were removed. Each session is an append-only JSONL file. A compaction record stores the compacted history, so <code>--resume</code> replays that snapshot and never calls the summariser again.</p>
+
+    <h3>Sub-agents are one level deep</h3>
+    <p>The <code>task</code> tool starts a child with an empty history, read-only tools, and no permission to ask. The child cannot call <code>task</code>, so the tree cannot grow. The parent receives only the child's final text, so a long search does not fill the parent's context.</p>
+
+    <figure class="arch">
+      <svg viewBox="0 0 720 290" role="img" aria-labelledby="arch-title arch-desc">
+        <title id="arch-title">quill architecture</title>
+        <desc id="arch-desc">The CLI calls the runtime, which wires the agent loop. The loop calls the model adapters, runs compaction when the budget is exceeded, and runs the tools. The task tool starts a child loop with read-only tools, and the child returns only its final text. Tools are confined to the workspace. The loop writes sessions to JSONL.</desc>
+        <defs><marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" fill="#13213A"/></marker></defs>
+        <g class="node"><rect x="8" y="112" width="112" height="46" rx="4"/><text x="64" y="139">cli.ts</text></g>
+        <g class="node"><rect x="152" y="112" width="112" height="46" rx="4"/><text x="208" y="139">runtime.ts</text></g>
+        <g class="node core"><rect x="296" y="104" width="128" height="62" rx="4"/><text x="360" y="130">agent/loop.ts</text><text class="sub" x="360" y="150">turn loop</text></g>
+        <g class="node warm"><rect x="296" y="10" width="128" height="50" rx="4"/><text x="360" y="32">agent/compact.ts</text><text class="sub" x="360" y="49">summarise old turns</text></g>
+        <g class="node"><rect x="468" y="10" width="244" height="50" rx="4"/><text x="590" y="32">model/*</text><text class="sub" x="590" y="49">Anthropic SDK · OpenAI-compatible · scripted</text></g>
+        <g class="node"><rect x="468" y="104" width="244" height="62" rx="4"/><text x="590" y="130">tools/*</text><text class="sub" x="590" y="150">read write edit bash grep glob task</text></g>
+        <g class="node"><rect x="468" y="224" width="244" height="50" rx="4"/><text x="590" y="246">tools/paths.ts</text><text class="sub" x="590" y="263">workspace confinement</text></g>
+        <g class="node"><rect x="296" y="224" width="128" height="50" rx="4"/><text x="360" y="246">session/store.ts</text><text class="sub" x="360" y="263">JSONL, --resume</text></g>
+        <g class="node warm"><rect x="8" y="10" width="244" height="50" rx="4"/><text x="130" y="32">task: child loop</text><text class="sub" x="130" y="49">fresh history, read-only tools, no task</text></g>
+        <g class="edges" fill="none" stroke="#13213A" stroke-width="1.4" marker-end="url(#arr)">
+          <path d="M120 135H152"/>
+          <path d="M264 135H296"/>
+          <path d="M424 135H468"/>
+          <path d="M360 104V60"/>
+          <path d="M424 112L468 50"/>
+          <path d="M360 166V224"/>
+          <path d="M590 166V224"/>
+          <path d="M468 160H424" stroke-dasharray="4 3"/>
+          <path d="M252 60L296 118" stroke-dasharray="4 3"/>
+        </g>
+      </svg>
+      <figcaption>Arrows show calls. The task tool runs a child loop with a fresh history and read-only tools, and returns only its final text to the parent.</figcaption>
+    </figure>
+  </section>
+
+  <section id="start" class="block">
+    <h2>Quickstart</h2>
+    <p>Requires Bun 1.3 or later. No API key is needed for the demos or the tests.</p>
+    <pre class="code"><code>bun install
+make test              # 80 tests: loop, tools, path confinement, compaction, sub-agent fan-out, sessions
+make demo              # keyless: agent finds and fixes a bug in a temp repo, tests go red -&gt; green
+make demo-compaction   # keyless: four requests under a 1200-token budget; compaction triggers</code></pre>
+    <p>With a real model, set <code>ANTHROPIC_API_KEY</code> in <code>.env</code> and run <code>bun src/cli.ts</code>. Other providers are reached through <code>QUILL_OPENAI_BASE_URL</code>. The live path has not been run against a real API in this repo.</p>
+  </section>
+
+  <section id="limits" class="block">
+    <h2>Limits, stated plainly</h2>
+    <ul class="limits">
+      <li><strong>No live model run is verified.</strong> The Anthropic path is tested against a mock SSE server and the OpenAI path against a fake fetch.</li>
+      <li><strong>bash is not a sandbox.</strong> Confinement covers the file tools only. The approval prompt is the guard for shell commands.</li>
+      <li><strong>Token counts are estimates.</strong> Four characters per token can be off for code and non-English text.</li>
+      <li><strong>One turn can still overflow.</strong> Compaction runs only between turns. A single request that is too big is reported as a warning.</li>
+      <li><strong>Summaries are written by the model.</strong> Earlier facts survive only as far as the summary keeps them.</li>
+      <li><strong>The OpenAI-compatible path is not streamed.</strong> The full reply arrives at once.</li>
+    </ul>
+  </section>
+
+  <section class="block links">
+    <p><a href="https://github.com/codealisha99/quill">Source on GitHub</a></p>
+    <p>Live demo: none. quill is a command-line tool with no hosted backend. The replay above is recorded output from the repository's own demos.</p>
+  </section>
+</main>
+
+<footer class="foot">
+  <p>MIT licence. Built with Bun and TypeScript.</p>
+</footer>
+
+<script src="recordings.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
