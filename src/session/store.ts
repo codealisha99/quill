@@ -31,11 +31,21 @@ export function latestSessionFile(root: string): string | undefined {
 }
 
 export function loadSession(file: string): Message[] {
-  const lines = fs.readFileSync(file, "utf8").split("\n").filter((l) => l.trim().length > 0);
+  const lines = readCompleteLines(file);
   return lines.reduce<Message[]>((messages, line, i) => {
     const record = parseRecord(line, i + 1);
     return record.kind === "compaction" ? [...record.messages] : [...messages, record.message];
   }, []);
+}
+
+// A crash mid-append can leave a partial last line with no newline. That record never
+// finished, so it is dropped and the file truncated. Otherwise the next append would
+// glue onto it and corrupt the middle of the file. Works on bytes, so UTF-8 is safe.
+function readCompleteLines(file: string): string[] {
+  const buf = fs.readFileSync(file);
+  const end = buf.lastIndexOf(0x0a) + 1;
+  if (end < buf.length) fs.truncateSync(file, end);
+  return buf.subarray(0, end).toString("utf8").split("\n").filter((l) => l.trim().length > 0);
 }
 
 export function parseRecord(line: string, lineNo: number): SessionRecord {

@@ -39,6 +39,16 @@ describe("session persistence", () => {
     expect(path.dirname(second)).toBe(sessionsDir(root));
   });
 
+  test("a torn final line from a crash is dropped and the file repaired, so resume works", () => {
+    const root = tempWorkspace();
+    const file = newSessionFile(root);
+    appendRecord(file, { kind: "message", message: user("kept") });
+    fs.appendFileSync(file, '{"kind":"message","message":{"role":"assi');
+    expect(loadSession(file)).toEqual([user("kept")]);
+    appendRecord(file, { kind: "message", message: bot("after resume") });
+    expect(loadSession(file)).toEqual([user("kept"), bot("after resume")]);
+  });
+
   test("a corrupt record fails loudly instead of silently losing history", () => {
     const root = tempWorkspace();
     const file = newSessionFile(root);
