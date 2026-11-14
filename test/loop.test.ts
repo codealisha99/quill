@@ -86,6 +86,41 @@ describe("agent loop", () => {
     expect(seen.map((m) => m.role)).toEqual(["user", "assistant"]);
   });
 
+  test("a malformed tool call is returned to the model as an error and the run continues", async () => {
+    const root = tempWorkspace();
+    const bad = { type: "tool_use" as const, id: "t1", name: "write", input: {}, invalidInput: { raw: '{"path":', error: "Unexpected end of JSON input" } };
+    const model = createScriptedModel([reply(bad), say("retrying")]);
+    const { d } = deps(root, model);
+    const result = await runAgent([], "write a file", d);
+    expect(result.finalText).toBe("retrying");
+    expect(result.messages[2]?.content[0]).toMatchObject({ tool_use_id: "t1", is_error: true });
+    expect(JSON.stringify(result.messages[2])).toContain("not valid");
+    expect(checkPairing(result.messages)).toEqual([]);
+  });
+
+  test("a text reply cut off at max_tokens asks the model to continue instead of finishing", async () => {
+    const root = tempWorkspace();
+    const cut = { ...say("The answer starts here and"), stopReason: "max_tokens" as const };
+    const model = createScriptedModel([cut, say(" then ends.")]);
+    const { d } = deps(root, model);
+    const result = await runAgent([], "explain", d);
+    expect(result.finalText).toBe(" then ends.");
+    expect(result.messages.length).toBe(4);
+    expect(JSON.stringify(result.messages[2])).toContain("cut off");
+    expect(checkPairing(result.messages)).toEqual([]);
+  });
+
+  test("a tool call in a reply cut off at max_tokens is not executed", async () => {
+    const root = tempWorkspace();
+    const cut = { ...reply(toolUse("write", { path: "half.txt", content: "partial" }, "t1")), stopReason: "max_tokens" as const };
+    const model = createScriptedModel([cut, say("retried later")]);
+    const { d } = deps(root, model);
+    const result = await runAgent([], "write", d);
+    expect(fs.existsSync(path.join(root, "half.txt"))).toBe(false);
+    expect(result.messages[2]?.content[0]).toMatchObject({ tool_use_id: "t1", is_error: true });
+    expect(checkPairing(result.messages)).toEqual([]);
+  });
+
   test("stops with an error after maxTurns", async () => {
     const root = tempWorkspace({ "a.txt": "a" });
     const loop = Array.from({ length: 5 }, (_, i) => reply(toolUse("read", { path: "a.txt" }, `t${i}`)));

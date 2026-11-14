@@ -11,6 +11,9 @@ export interface ToolUseBlock {
   readonly id: string;
   readonly name: string;
   readonly input: Readonly<Record<string, unknown>>;
+  // Set when the provider sent arguments that are not a JSON object. The loop
+  // returns this to the model as a tool error instead of running the tool.
+  readonly invalidInput?: { readonly raw: string; readonly error: string };
 }
 
 export interface ToolResultBlock {

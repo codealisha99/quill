@@ -16,7 +16,7 @@ export function toOpenAIMessages(system: string, messages: readonly Message[]): 
     if (m.role === "assistant") {
       const calls = m.content.flatMap((b) =>
         b.type === "tool_use"
-          ? [{ id: b.id, type: "function" as const, function: { name: b.name, arguments: JSON.stringify(b.input) } }]
+          ? [{ id: b.id, type: "function" as const, function: { name: b.name, arguments: b.invalidInput?.raw ?? JSON.stringify(b.input) } }]
           : [],
       );
       out.push({ role: "assistant", content: text || null, ...(calls.length ? { tool_calls: calls } : {}) });
@@ -47,14 +47,7 @@ export function fromOpenAIResponse(json: ChatResponse): ModelResponse {
   if (!choice) throw new Error("OpenAI-compatible response has no choices");
   const blocks: Block[] = [];
   if (choice.message.content) blocks.push({ type: "text", text: choice.message.content });
-  for (const call of choice.message.tool_calls ?? []) {
-    blocks.push({
-      type: "tool_use",
-      id: call.id,
-      name: call.function.name,
-      input: parseArgs(call.function.arguments),
-    });
-  }
+  for (const call of choice.message.tool_calls ?? []) blocks.push(toToolUse(call));
   const hasCalls = blocks.some((b) => b.type === "tool_use");
   return {
     content: blocks,
@@ -66,10 +59,22 @@ export function fromOpenAIResponse(json: ChatResponse): ModelResponse {
   };
 }
 
+// Bad arguments are a model mistake, not a provider failure: keep the raw text so
+// the loop can report it back to the model and let it retry.
+function toToolUse(call: NonNullable<OpenAIMessage["tool_calls"]>[number]): Block {
+  const base = { type: "tool_use" as const, id: call.id, name: call.function.name };
+  try {
+    return { ...base, input: parseArgs(call.function.arguments) };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : String(err);
+    return { ...base, input: {}, invalidInput: { raw: call.function.arguments, error } };
+  }
+}
+
 function parseArgs(raw: string): Record<string, unknown> {
   const value: unknown = JSON.parse(raw || "{}");
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error(`tool arguments must be a JSON object, got: ${raw}`);
+    throw new Error("tool arguments must be a JSON object");
   }
   return value as Record<string, unknown>;
 }

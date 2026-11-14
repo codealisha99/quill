@@ -52,6 +52,11 @@ export async function runAgent(
     messages = append(messages, assistant, deps.onMessage);
 
     const calls = response.content.filter((b): b is ToolUseBlock => b.type === "tool_use");
+    if (response.stopReason === "max_tokens") {
+      // A cut-off reply is not an answer, and its tool calls may be incomplete, so none run.
+      messages = append(messages, cutOffFollowUp(calls, deps), deps.onMessage);
+      continue;
+    }
     if (calls.length === 0) return { messages, finalText: textOf(response.content) };
 
     // All calls from one assistant message run concurrently; results keep call order.
@@ -75,6 +80,22 @@ async function maybeCompact(messages: readonly Message[], deps: AgentDeps): Prom
   return result.messages;
 }
 
+const CUT_OFF_NOTE = "the reply hit the output limit before this tool call was complete; it was not run. Retry with a smaller call.";
+
+// Keeps every tool_use paired (the provider rejects a broken pairing), then asks for the rest.
+function cutOffFollowUp(calls: readonly ToolUseBlock[], deps: AgentDeps): Message {
+  deps.emit({ type: "warning", message: "a reply hit the output limit; asking the model to continue" });
+  if (calls.length === 0) {
+    const text = "Your previous reply was cut off at the output limit. Continue from where it stopped.";
+    return { role: "user", content: [{ type: "text", text }] };
+  }
+  const content = calls.map((call) => {
+    deps.emit({ type: "tool_result", id: call.id, name: call.name, content: CUT_OFF_NOTE, isError: true });
+    return { type: "tool_result" as const, tool_use_id: call.id, content: CUT_OFF_NOTE, is_error: true };
+  });
+  return { role: "user", content };
+}
+
 async function runToolCall(call: ToolUseBlock, deps: AgentDeps): Promise<ToolResultBlock> {
   deps.emit({ type: "tool_call", id: call.id, name: call.name, input: call.input });
   const result = await executeTool(call, deps);
@@ -87,6 +108,10 @@ async function executeTool(
   call: ToolUseBlock,
   deps: AgentDeps,
 ): Promise<{ content: string; isError: boolean }> {
+  if (call.invalidInput) {
+    const error = call.invalidInput.error;
+    return { content: `tool arguments are not valid JSON (${error}). Send a JSON object that matches the tool's schema.`, isError: true };
+  }
   const tool = deps.tools.find((t) => t.spec.name === call.name);
   if (!tool) return { content: `unknown tool: ${call.name}`, isError: true };
   try {

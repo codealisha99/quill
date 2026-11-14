@@ -39,6 +39,15 @@ describe("OpenAI-compatible mapping", () => {
     expect(res.usage).toEqual({ inputTokens: 10, outputTokens: 3 });
   });
 
+  test("malformed tool-call arguments are kept as an invalid call, not a thrown error", () => {
+    const res = fromOpenAIResponse({
+      choices: [{ message: { content: null, tool_calls: [{ id: "x", type: "function", function: { name: "write", arguments: '{"path":"a.txt","content":"unterminated' } }] }, finish_reason: "tool_calls" }],
+    });
+    const call = res.content[0];
+    expect(call).toMatchObject({ type: "tool_use", id: "x", name: "write", invalidInput: { raw: '{"path":"a.txt","content":"unterminated' } });
+    expect((call as { invalidInput: { error: string } }).invalidInput.error).toBeTruthy();
+  });
+
   test("client posts to /chat/completions with the bearer key", async () => {
     let seen: { url: string; auth: string | null } | undefined;
     const fakeFetch = (async (url: string, init: RequestInit) => {
