@@ -27,20 +27,27 @@ export const bashTool: Tool = {
       stdout: "pipe",
       stderr: "pipe",
     });
-    let timedOut = false;
-    const timer = setTimeout(() => {
-      timedOut = true;
-      proc.kill();
-    }, timeout);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    // ponytail: killing bash does not stop children that still hold the pipes; we stop waiting at the deadline instead. Upgrade path: kill the whole process group.
+    const expired = new Promise<"timeout">((resolve) => {
+      timer = setTimeout(() => {
+        proc.kill();
+        resolve("timeout");
+      }, timeout);
+    });
+    const finished = Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ]);
     try {
-      const [stdout, stderr] = await Promise.all([
-        new Response(proc.stdout).text(),
-        new Response(proc.stderr).text(),
-      ]);
-      const code = await proc.exited;
+      const outcome = await Promise.race([finished, expired]);
+      if (outcome === "timeout") {
+        return { content: `[timed out after ${timeout}ms]`, isError: true };
+      }
+      const [stdout, stderr, code] = outcome;
       const parts = [stdout, stderr && `[stderr]\n${stderr}`].filter(Boolean);
-      const status = timedOut ? `timed out after ${timeout}ms` : `exit code ${code}`;
-      return { content: `${parts.join("\n")}\n[${status}]`.trim(), isError: timedOut || code !== 0 };
+      return { content: `${parts.join("\n")}\n[exit code ${code}]`.trim(), isError: code !== 0 };
     } finally {
       clearTimeout(timer);
     }

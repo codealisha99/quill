@@ -93,6 +93,24 @@ describe("bash", () => {
     expect(out.content).toContain("timed out");
     expect(out.isError).toBe(true);
   });
+
+  test("returns at the timeout even when a child keeps the output pipe open", async () => {
+    const root = tempWorkspace();
+    const started = Date.now();
+    const out = await bashTool.run({ command: "sleep 3; echo late", timeout_ms: 200 }, ctxFor(root));
+    expect(Date.now() - started).toBeLessThan(2000);
+    expect(out.content).toContain("timed out");
+    expect(out.isError).toBe(true);
+  });
+});
+
+describe("glob confinement", () => {
+  test("refuses patterns that climb out of the workspace", async () => {
+    const root = tempWorkspace({ "a.txt": "x" });
+    await expect(globTool.run({ pattern: "../*" }, ctxFor(root))).rejects.toThrow(PathEscapeError);
+    await expect(globTool.run({ pattern: "**/../*" }, ctxFor(root))).rejects.toThrow(PathEscapeError);
+    await expect(globTool.run({ pattern: "/etc/*" }, ctxFor(root))).rejects.toThrow(PathEscapeError);
+  });
 });
 
 describe("grep and glob", () => {

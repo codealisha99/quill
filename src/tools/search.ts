@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { Tool, ToolOutput } from "./tool.ts";
 import { requireString, ToolInputError } from "./tool.ts";
-import { resolveInside } from "./paths.ts";
+import { PathEscapeError, resolveInside } from "./paths.ts";
 
 const SKIP_DIRS = new Set([".git", "node_modules", ".quill"]);
 const MAX_MATCHES = 200;
@@ -59,7 +59,12 @@ export const globTool: Tool = {
     },
   },
   async run(input, ctx): Promise<ToolOutput> {
-    const glob = new Bun.Glob(requireString(input, "pattern"));
+    const pattern = requireString(input, "pattern");
+    // ponytail: rejecting ".." segments and absolute patterns is the cheap guard; the scan itself never leaves the root
+    if (path.isAbsolute(pattern) || pattern.split(/[\\/]/).includes("..")) {
+      throw new PathEscapeError(`glob pattern leaves the workspace: ${pattern}`);
+    }
+    const glob = new Bun.Glob(pattern);
     const base = resolveInside(ctx.root, typeof input.path === "string" ? input.path : ".");
     const found: string[] = [];
     for await (const rel of glob.scan({ cwd: base, onlyFiles: true })) {
