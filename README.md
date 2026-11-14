@@ -82,7 +82,7 @@ system prompt.
 
 - Landing page: `site/` is static HTML, CSS and JS. `scripts/record-demos.ts` regenerates its replay data from `make demo` and `make demo-compaction`.
 
-- `make test`: 80 tests across 14 files, run with `bun test`. Coverage is 96% of lines and 91% of functions. The tests are
+- `make test`: 80 tests across 14 files, run with `bun test`. Coverage is 89% of lines and 85% of functions (`bun test --coverage`). The tests are
   hermetic. The Anthropic streaming path runs through the real SDK against a local mock SSE server. The
   OpenAI-compatible path uses a fake `fetch`.
 - `make demo`: the real loop and real tools, driven by a scripted model. The agent delegates a repo map to a
