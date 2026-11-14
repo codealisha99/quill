@@ -18,7 +18,7 @@ export function resolveInside(root: string, requested: string): string {
 
 export function isWithin(root: string, target: string): boolean {
   const rel = path.relative(root, target);
-  return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+  return rel === "" || (rel !== ".." && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel));
 }
 
 // Walks up to the closest ancestor that exists and resolves its symlinks, then

@@ -17,6 +17,11 @@ describe("resolveInside (path confinement)", () => {
     expect(() => resolveInside(root, "a/../../outside.txt")).toThrow(PathEscapeError);
   });
 
+  test("accepts names that merely start with two dots", () => {
+    const root = tempWorkspace({ "..notes/a.txt": "x" });
+    expect(() => resolveInside(root, "..notes/a.txt")).not.toThrow();
+  });
+
   test("rejects absolute paths outside the workspace", () => {
     const root = tempWorkspace();
     expect(() => resolveInside(root, "/etc/hosts")).toThrow(PathEscapeError);
