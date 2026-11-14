@@ -135,6 +135,13 @@ describe("grep and glob", () => {
     expect(out.content).not.toContain("src/b.md");
   });
 
+  test("grep accepts a path that is a symlink to a directory inside the workspace", async () => {
+    const root = tempWorkspace({ "real/notes.txt": "needle here" });
+    fs.symlinkSync(path.join(root, "real"), path.join(root, "link"));
+    const out = await grepTool.run({ pattern: "needle", path: "link" }, ctxFor(root));
+    expect(out.content).toContain("needle here");
+  });
+
   test("grep rejects invalid regular expressions", async () => {
     await expect(grepTool.run({ pattern: "(" }, ctxFor(tempWorkspace()))).rejects.toThrow(ToolInputError);
   });

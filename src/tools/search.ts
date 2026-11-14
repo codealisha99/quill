@@ -85,9 +85,11 @@ function compile(source: string): RegExp {
   }
 }
 
-// Symlinks are never followed, so the walk cannot leave the workspace.
+// Symlinks found while walking are never followed, so the walk cannot leave the
+// workspace. The starting path may itself be a symlink: resolveInside has already
+// checked where it points, so it is followed here.
 async function* walk(dir: string): AsyncGenerator<string> {
-  const stat = await fs.lstat(dir);
+  const stat = await fs.stat(dir);
   if (!stat.isDirectory()) {
     yield dir;
     return;
