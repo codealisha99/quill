@@ -1,5 +1,8 @@
 # quill
 
+**Landing page:** https://quill-site-seven.vercel.app (replays the real demo output; scripted model)
+**Live demo:** none. quill is a command-line tool with no hosted backend.
+
 A small terminal coding agent in TypeScript (Bun), in the spirit of Claude Code, Codex CLI and
 [pi](https://github.com/earendil-works/pi). It runs a real tool-using loop against a model, streams
 the output, and manages its own context window: it summarises older turns when the budget fills up,
@@ -30,7 +33,7 @@ Requires [Bun](https://bun.sh) 1.3+. No API key is needed for the demos or the t
 
 ```bash
 bun install
-make test              # 73 tests: loop, tools, path confinement, compaction, sub-agent fan-out, sessions
+make test              # 80 tests: loop, tools, path confinement, compaction, sub-agent fan-out, sessions
 make demo              # keyless: agent finds and fixes a bug in a temp repo, tests go red -> green
 make demo-compaction   # keyless: four requests under a 1200-token budget; compaction triggers
 ```
@@ -69,15 +72,17 @@ system prompt.
   recursion is impossible. The parent transcript stays small however much the child reads.
 - **Confinement is checked on every path.** `resolveInside()` rejects `..`, absolute paths outside the root,
   NUL bytes, and symlinks that point outside. Dangling symlinks are rejected too, because writing through one
-  would create a file at an unchecked target. Grep and glob never follow symlinks.
+  would create a file at an unchecked target. Grep and glob never follow symlinks found during a walk; a symlink given as the grep path is allowed when it resolves inside the workspace.
 - **Sessions are append-only JSONL.** A compaction record snapshots the compacted history, so `--resume` replays
-  the snapshot and never re-runs the summariser.
+  the snapshot and never re-runs the summariser. A torn last line from a crash is dropped on resume.
 - **Permissions.** `write`, `edit` and `bash` need approval. Interactive mode asks; `--yes` approves; without a
   TTY and without `--yes`, they are denied and the model is told why.
 
 ## Verification
 
-- `make test`: 73 tests across 13 files, run with `bun test`. Coverage is 96% of lines and 91% of functions. The tests are
+- Landing page: `site/` is static HTML, CSS and JS. `scripts/record-demos.ts` regenerates its replay data from `make demo` and `make demo-compaction`.
+
+- `make test`: 80 tests across 14 files, run with `bun test`. Coverage is 96% of lines and 91% of functions. The tests are
   hermetic. The Anthropic streaming path runs through the real SDK against a local mock SSE server. The
   OpenAI-compatible path uses a fake `fetch`.
 - `make demo`: the real loop and real tools, driven by a scripted model. The agent delegates a repo map to a

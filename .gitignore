@@ -3,3 +3,4 @@ node_modules/
 .quill/
 *.log
 .DS_Store
+site/.vercel/
