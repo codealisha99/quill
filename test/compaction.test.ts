@@ -49,6 +49,21 @@ describe("compactMessages", () => {
     expect(result!.messages.slice(1)).toEqual(history.slice(cut));
   });
 
+  test("repeated compaction in one long request does not carry earlier summaries forward", async () => {
+    const model = createScriptedModel([], { summary: "S" });
+    let messages = (await compactMessages(longHistory(6), model))!.messages;
+    const sizes: number[] = [];
+    for (let round = 0; round < 4; round++) {
+      messages = [...messages, ...turn(`r${round}a`), ...turn(`r${round}b`), ...turn(`r${round}c`)];
+      messages = (await compactMessages(messages, model))!.messages;
+      expect(checkPairing(messages)).toEqual([]);
+      expect(JSON.stringify(messages[0]).split("[Earlier conversation was compacted").length - 1).toBe(1);
+      sizes.push(JSON.stringify(messages).length);
+    }
+    expect(sizes.at(-1)).toBeLessThanOrEqual(sizes[0]!);
+    expect(JSON.stringify(messages[0])).toContain("refactor the parser");
+  });
+
   test("returns null when there is nothing old enough to summarise", async () => {
     const short = longHistory(KEEP_RECENT_ASSISTANT_TURNS - 1);
     expect(await compactMessages(short, createScriptedModel([]))).toBeNull();
